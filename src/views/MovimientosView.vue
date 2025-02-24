@@ -5,7 +5,12 @@
 
     <ul class="list-group mt-3">
       <li v-for="movimiento in movimientos" :key="movimiento.id" class="list-group-item d-flex justify-content-between align-items-center">
-        {{ movimiento.description }} - <span class="badge bg-primary">{{ movimiento.amount }}</span>
+        <div>
+          {{ movimiento.description }} - <span class="badge bg-primary">{{ movimiento.amount }}</span>
+          <div v-if="movimiento.receipt_image">
+            <img :src="getImageUrl(movimiento.receipt_image)" alt="Recibo" class="img-thumbnail mt-2" width="100" />
+          </div>
+        </div>
       </li>
     </ul>
 
@@ -25,7 +30,8 @@
             <select class="form-select mb-3" v-model="movimiento.category_id">
               <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">{{ categoria.name }}</option>
             </select>
-            <input type="date" class="form-control" v-model="movimiento.date" />
+            <input type="date" class="form-control mb-3" v-model="movimiento.date" />
+            <input type="file" class="form-control" @change="handleFileUpload" />
           </div>
           <div class="modal-footer">
             <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -50,7 +56,8 @@ const movimiento = ref({
   description: '',
   amount: '',
   category_id: null,
-  date: new Date().toISOString().split('T')[0] // Fecha actual por defecto
+  date: new Date().toISOString().split('T')[0],
+  receipt_image: null,
 });
 let modalInstance;
 
@@ -76,11 +83,16 @@ const abrirModal = () => {
     description: '',
     amount: '',
     category_id: categorias.value.length ? categorias.value[0].id : null,
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    receipt_image: null,
   };
 
   modalInstance = new bootstrap.Modal(document.getElementById('movimientoModal'));
   modalInstance.show();
+};
+
+const handleFileUpload = (event) => {
+  movimiento.value.receipt_image = event.target.files[0];
 };
 
 const guardarMovimiento = async () => {
@@ -89,7 +101,17 @@ const guardarMovimiento = async () => {
   }
 
   try {
-    await useApi('transactions', 'POST', movimiento.value);
+    const formData = new FormData();
+    formData.append('description', movimiento.value.description || '');
+    formData.append('amount', movimiento.value.amount);
+    formData.append('category_id', movimiento.value.category_id);
+    formData.append('date', movimiento.value.date);
+    if (movimiento.value.receipt_image) {
+      formData.append('receipt_image', movimiento.value.receipt_image);
+    }
+
+    await useApi('transactions', 'POST', formData, { 'Content-Type': 'multipart/form-data' });
+
     Swal.fire('¡Movimiento agregado!', '', 'success');
     modalInstance.hide();
     cargarMovimientos();
@@ -97,6 +119,10 @@ const guardarMovimiento = async () => {
     console.error("Error al agregar movimiento:", error);
     Swal.fire('Error', 'No se pudo agregar el movimiento', 'error');
   }
+};
+
+const getImageUrl = (path) => {
+  return `${import.meta.env.VITE_API_URL}/storage/${path}`;
 };
 
 onMounted(() => {
