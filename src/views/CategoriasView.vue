@@ -4,19 +4,20 @@
     <button class="btn btn-success" @click="abrirModal()">Nueva Categoría</button>
 
     <ul class="list-group mt-3">
-      <li
-        v-for="categoria in categorias"
-        :key="categoria.id"
-        class="list-group-item d-flex justify-content-between align-items-center"
-      >
-        {{ categoria.name }} - <span class="badge bg-info">{{ categoria.type }}</span>
+      <li v-for="categoria in categorias" :key="categoria.id" class="list-group-item d-flex justify-content-between align-items-center">
+        {{ categoria.name }} - <span class="badge bg-info">{{ traducirTipo(categoria.type) }}</span>
         <div>
-          <button class="btn btn-warning btn-sm me-2" @click="abrirModal(categoria)">Editar</button>
-          <button class="btn btn-danger btn-sm" @click="eliminarCategoria(categoria.id)">Eliminar</button>
+          <button class="btn btn-warning btn-sm me-2" @click="abrirModal(categoria)">
+            <i class="bi bi-pencil"></i> Editar
+          </button>
+          <button class="btn btn-danger btn-sm" @click="eliminarCategoria(categoria.id)">
+            <i class="bi bi-trash"></i> Eliminar
+          </button>
         </div>
       </li>
     </ul>
 
+    <!-- Mensaje de Error -->
     <p v-if="errorMessage" class="text-danger mt-3">{{ errorMessage }}</p>
 
     <!-- Modal para Crear/Editar Categoría -->
@@ -24,26 +25,21 @@
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">{{ esEdicion ? 'Editar Categoría' : 'Nueva Categoría' }}</h5>
+            <h5 class="modal-title fw-bold">
+              <i class="bi bi-tags me-2"></i>{{ esEdicion ? 'Editar Categoría' : 'Nueva Categoría' }}
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <input
-              type="text"
-              class="form-control mb-3"
-              v-model="categoria.name"
-              placeholder="Nombre de la categoría"
-            />
+            <input type="text" class="form-control mb-3" v-model="categoria.name" placeholder="Nombre de la categoría" />
             <select class="form-select" v-model="categoria.type">
-              <option value="ingreso">Ingreso</option>
-              <option value="gasto">Gasto</option>
+              <option value="income">Ingreso</option>
+              <option value="expense">Gasto</option>
             </select>
           </div>
           <div class="modal-footer">
             <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button class="btn btn-primary" @click="guardarCategoria">
-              {{ esEdicion ? 'Actualizar' : 'Guardar' }}
-            </button>
+            <button class="btn btn-primary" @click="guardarCategoria">{{ esEdicion ? 'Actualizar' : 'Guardar' }}</button>
           </div>
         </div>
       </div>
@@ -63,7 +59,6 @@ const categoria = ref({ id: null, name: '', type: 'ingreso' });
 const esEdicion = ref(false);
 let modalInstance;
 
-// 📌 Cargar categorías desde la API
 const cargarCategorias = async () => {
   try {
     categorias.value = await useApi('categories');
@@ -73,7 +68,6 @@ const cargarCategorias = async () => {
   }
 };
 
-// 📌 Abrir modal para crear o editar categoría
 const abrirModal = (cat = null) => {
   esEdicion.value = !!cat;
   categoria.value = cat ? { ...cat } : { id: null, name: '', type: 'ingreso' };
@@ -82,7 +76,6 @@ const abrirModal = (cat = null) => {
   modalInstance.show();
 };
 
-// 📌 Guardar (crear o editar) una categoría
 const guardarCategoria = async () => {
   if (!categoria.value.name.trim()) {
     return Swal.fire('Error', 'El nombre es obligatorio', 'error');
@@ -100,8 +93,8 @@ const guardarCategoria = async () => {
       await useApi('categories', 'POST', categoria.value);
       Swal.fire('Creado', 'Categoría añadida con éxito', 'success');
     }
-
-    setTimeout(() => modalInstance.hide(), 300);
+    
+    modalInstance.hide();
     cargarCategorias();
   } catch (error) {
     console.error('Error al guardar categoría:', error);
@@ -109,7 +102,6 @@ const guardarCategoria = async () => {
   }
 };
 
-// 📌 Eliminar una categoría
 const eliminarCategoria = async (id) => {
   const confirm = await Swal.fire({
     title: '¿Estás seguro?',
@@ -117,7 +109,7 @@ const eliminarCategoria = async (id) => {
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
+    cancelButtonText: 'Cancelar',
   });
 
   if (!confirm.isConfirmed) return;
@@ -132,6 +124,22 @@ const eliminarCategoria = async (id) => {
   }
 };
 
-// 📌 Cargar categorías al montar el componente
+const traducirTipo = (tipo) => {
+  return tipo === 'income' ? 'Ingreso' : 'Gasto';
+};
+
 onMounted(cargarCategorias);
 </script>
+
+<style scoped>
+.list-group-item {
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+.list-group-item:hover {
+  transform: translateY(-2px);
+}
+.badge {
+  font-size: 0.9rem;
+}
+</style>
