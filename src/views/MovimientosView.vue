@@ -1,55 +1,85 @@
 <template>
   <div class="container mt-4">
-    <!-- Título y Botón de Nuevo Movimiento -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="fw-bold text-primary">
-        <i class="bi bi-cash-coin me-2"></i>Movimientos
-      </h2>
-      <button class="btn btn-success" @click="abrirModal()">
-        <i class="bi bi-plus-circle me-2"></i>Nuevo Movimiento
-      </button>
+    <h2>Movimientos</h2>
+    
+    <div class="d-flex justify-content-between mb-3">
+      <input v-model="searchQuery" class="form-control w-50" placeholder="Buscar movimiento..." />
+      <button class="btn btn-success" @click="openCreateModal">Nuevo Movimiento</button>
     </div>
 
-    <ul class="list-group mt-3">
-      <li v-for="movimiento in movimientos" :key="movimiento.id" class="list-group-item d-flex justify-content-between align-items-center">
-        <div>
-          {{ movimiento.description }} - <span class="badge bg-primary">{{ movimiento.amount }}</span>
-          <div v-if="movimiento.receipt_image">
-            <img :src="getImageUrl(movimiento.receipt_image)" alt="Recibo" class="img-thumbnail mt-2" width="100" />
-          </div>
-        </div>
-      </li>
-    </ul>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>#</th>
+            <th>Descripción</th>
+            <th>Monto</th>
+            <th>Categoría</th>
+            <th>Fecha</th>
+            <th>Comprobante</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(mov, index) in movimientos" :key="mov.id">
+            <td>{{ calculateIndex(index) }}</td>
+            <td>{{ mov.description || 'Sin descripción' }}</td>
+            <td>${{ Number(mov.amount).toFixed(2) }}</td>
+            <td>{{ obtenerNombreCategoria(mov.category_id) }}</td>
+            <td>{{ mov.date }}</td>
+            <td>
+              <a v-if="mov.receipt_image" :href="getImageUrl(mov.receipt_image)" target="_blank">
+                Ver Imagen
+              </a>
+              <span v-else>Sin imagen</span>
+            </td>
+            <td>
+              <button class="btn btn-warning btn-sm me-2" @click="openEditModal(mov)">Editar</button>
+              <button class="btn btn-danger btn-sm" @click="confirmDelete(mov.id)">Eliminar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- Mensaje de Error -->
-    <p v-if="errorMessage" class="text-danger mt-3">{{ errorMessage }}</p>
+    <!-- Paginación -->
+    <nav>
+      <ul class="pagination justify-content-center">
+        <li class="page-item" :class="{ disabled: currentPage === 1 }">
+          <button class="page-link" @click="goToPage(currentPage - 1)">Anterior</button>
+        </li>
+        <li class="page-item" v-for="page in totalPages" :key="page" :class="{ active: page === currentPage }">
+          <button class="page-link" @click="goToPage(page)">{{ page }}</button>
+        </li>
+        <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+          <button class="page-link" @click="goToPage(currentPage + 1)">Siguiente</button>
+        </li>
+      </ul>
+    </nav>
 
-    <!-- Modal para Crear Movimiento -->
+    <!-- Modal para Crear/Editar Movimiento -->
     <div class="modal fade" id="movimientoModal" tabindex="-1">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title fw-bold">
-              <i class="bi bi-cash-coin me-2"></i>Nuevo Movimiento
-            </h5>
+            <h5 class="modal-title">{{ form.id ? 'Editar Movimiento' : 'Nuevo Movimiento' }}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <input type="text" class="form-control mb-3" v-model="movimiento.description" placeholder="Descripción (opcional)" />
-            <input type="number" class="form-control mb-3" v-model="movimiento.amount" placeholder="Monto" />
-            <select class="form-select mb-3" v-model="movimiento.category_id">
+            <input type="text" class="form-control mb-3" v-model="form.description" placeholder="Descripción (opcional)" />
+            <input type="number" class="form-control mb-3" v-model="form.amount" placeholder="Monto" />
+            <select class="form-select mb-3" v-model="form.category_id">
               <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">{{ categoria.name }}</option>
             </select>
-            <input type="date" class="form-control mb-3" v-model="movimiento.date" />
-            <input type="file" class="form-control" @change="handleFileUpload" />
+            <input type="date" class="form-control mb-3" v-model="form.date" />
+            <input type="file" class="form-control mb-3" @change="subirImagen" accept="image/*" />
+            <div v-if="imagenPreview" class="text-center">
+              <img :src="imagenPreview" class="img-thumbnail" style="max-width: 100px;" />
+            </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" data-bs-dismiss="modal">
-              <i class="bi bi-x-circle me-2"></i>Cancelar
-            </button>
-            <button class="btn btn-primary" @click="guardarMovimiento">
-              <i class="bi bi-save me-2"></i>Guardar
-            </button>
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary" @click="saveMovimiento">{{ form.id ? 'Actualizar' : 'Guardar' }}</button>
           </div>
         </div>
       </div>
@@ -58,112 +88,119 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import Swal from 'sweetalert2';
-import { useApi } from '../composables/use-api';
-import bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import { ref, onMounted, watch } from "vue";
+import { useApi } from "../composables/use-api";
+import Swal from "sweetalert2";
+import * as bootstrap from "bootstrap";
 
 const movimientos = ref([]);
 const categorias = ref([]);
-const errorMessage = ref('');
-const movimiento = ref({
-  description: '',
-  amount: '',
+const searchQuery = ref("");
+const currentPage = ref(1);
+const totalPages = ref(1);
+const itemsPerPage = 5;
+const imagenFile = ref(null);
+const imagenPreview = ref(null);
+const form = ref({
+  id: null,
+  description: "",
+  amount: "",
   category_id: null,
   date: new Date().toISOString().split('T')[0],
-  receipt_image: null,
+  receipt_image: null
 });
-let modalInstance;
 
-// Cargar movimientos
-const cargarMovimientos = async () => {
+// Cargar movimientos paginados
+const fetchMovimientos = async (page = 1, search = "") => {
   try {
-    movimientos.value = await useApi('transactions');
-    // Asociar categorías a los movimientos
-    movimientos.value = movimientos.value.map((movimiento) => {
-      movimiento.category = categorias.value.find((cat) => cat.id === movimiento.category_id);
-      return movimiento;
-    });
+    const response = await useApi(`transactions?page=${page}&itemsPerPage=${itemsPerPage}&search=${search}`);
+    movimientos.value = response.transactions.data.map(mov => ({ ...mov, amount: Number(mov.amount) }));
+    currentPage.value = response.transactions.current_page;
+    totalPages.value = response.transactions.last_page;
   } catch (error) {
-    errorMessage.value = 'Error al cargar movimientos';
-    console.error("Error al cargar movimientos:", error);
+    console.error("Error al cargar los movimientos:", error);
   }
 };
 
 // Cargar categorías
-const cargarCategorias = async () => {
+const fetchCategorias = async () => {
   try {
-    categorias.value = await useApi('categories');
-    if (categorias.value.length) {
-      movimiento.value.category_id = categorias.value[0].id; // Seleccionar la primera categoría por defecto
-    }
+    categorias.value = await useApi("categories");
   } catch (error) {
     console.error("Error al cargar categorías:", error);
   }
 };
 
-// Abrir modal para crear movimiento
-const abrirModal = () => {
-  movimiento.value = {
-    description: '',
-    amount: '',
-    category_id: categorias.value.length ? categorias.value[0].id : null,
-    date: new Date().toISOString().split('T')[0],
-    receipt_image: null,
-  };
-
-  modalInstance = new bootstrap.Modal(document.getElementById('movimientoModal'));
-  modalInstance.show();
+const obtenerNombreCategoria = (id) => {
+  const categoria = categorias.value.find(cat => cat.id === id);
+  return categoria ? categoria.name : "Desconocida";
 };
 
-const handleFileUpload = (event) => {
-  movimiento.value.receipt_image = event.target.files[0];
+const openEditModal = (mov) => {
+  form.value = { ...mov };
+  imagenPreview.value = mov.receipt_image ? getImageUrl(mov.receipt_image) : null;
+  new bootstrap.Modal(document.getElementById("movimientoModal")).show();
 };
 
-const guardarMovimiento = async () => {
-  if (!movimiento.value.amount || !movimiento.value.category_id || !movimiento.value.date) {
-    return Swal.fire('Error', 'Todos los campos son obligatorios excepto la descripción', 'error');
-  }
+const openCreateModal = () => {
+  form.value = { id: null, description: "", amount: "", category_id: categorias.value[0]?.id || null, date: new Date().toISOString().split('T')[0], receipt_image: null };
+  imagenPreview.value = null;
+  new bootstrap.Modal(document.getElementById("movimientoModal")).show();
+};
 
+const saveMovimiento = async () => {
   try {
     const formData = new FormData();
-    formData.append('description', movimiento.value.description || '');
-    formData.append('amount', movimiento.value.amount);
-    formData.append('category_id', movimiento.value.category_id);
-    formData.append('date', movimiento.value.date);
-    if (movimiento.value.receipt_image) {
-      formData.append('receipt_image', movimiento.value.receipt_image);
+    formData.append("description", form.value.description);
+    formData.append("amount", form.value.amount);
+    formData.append("category_id", form.value.category_id);
+    formData.append("date", form.value.date);
+    if (imagenFile.value) {
+      formData.append("receipt_image", imagenFile.value);
     }
 
-    await useApi('transactions', 'POST', formData, { 'Content-Type': 'multipart/form-data' });
-
-    Swal.fire('¡Movimiento agregado!', '', 'success');
-    modalInstance.hide();
-    cargarMovimientos();
+    if (form.value.id) {
+      await useApi(`transactions/${form.value.id}`, "PUT", formData);
+      Swal.fire("Actualizado", "Movimiento actualizado exitosamente", "success");
+    } else {
+      await useApi("transactions", "POST", formData);
+      Swal.fire("Creado", "Movimiento agregado exitosamente", "success");
+    }
+    fetchMovimientos(currentPage.value);
   } catch (error) {
-    console.error("Error al agregar movimiento:", error);
-    Swal.fire('Error', 'No se pudo agregar el movimiento', 'error');
+    Swal.fire("Error", "No se pudo guardar el movimiento", "error");
   }
 };
 
-const getImageUrl = (path) => {
-  return `${import.meta.env.VITE_API_URL}/storage/${path}`;
+const confirmDelete = (id) => {
+  Swal.fire({
+    title: "¿Estás seguro?",
+    text: "No podrás revertir esto",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, eliminar",
+    cancelButtonText: "Cancelar"
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      await useApi(`transactions/${id}`, "DELETE");
+      fetchMovimientos(currentPage.value);
+      Swal.fire("Eliminado", "Movimiento eliminado exitosamente", "success");
+    }
+  });
+};
+
+const goToPage = (page) => {
+  fetchMovimientos(page, searchQuery.value);
+};
+
+const calculateIndex = (index) => {
+  return (currentPage.value - 1) * itemsPerPage + index + 1;
 };
 
 onMounted(() => {
-  cargarCategorias().then(() => cargarMovimientos());
+  fetchMovimientos();
+  fetchCategorias();
 });
-</script>
 
-<style scoped>
-.list-group-item {
-  border-radius: 8px;
-  transition: transform 0.2s;
-}
-.list-group-item:hover {
-  transform: translateY(-2px);
-}
-.badge {
-  font-size: 0.9rem;
-}
-</style>
+watch(searchQuery, () => fetchMovimientos(1, searchQuery.value));
+</script>
