@@ -1,206 +1,287 @@
 <template>
-  <div class="container mt-4">
-    <h2>Movimientos</h2>
-    
-    <div class="d-flex justify-content-between mb-3">
-      <input v-model="searchQuery" class="form-control w-50" placeholder="Buscar movimiento..." />
-      <button class="btn btn-success" @click="openCreateModal">Nuevo Movimiento</button>
-    </div>
+  <div class="custom-container mt-3">
+    <div class="card shadow">
+      <div class="card-header text-center bg-primary text-white">
+        <h3>Gestión de movimientos</h3>
+      </div>
 
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead class="table-dark">
-          <tr>
-            <th>#</th>
-            <th>Descripción</th>
-            <th>Monto</th>
-            <th>Categoría</th>
-            <th>Fecha</th>
-            <th>Comprobante</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(mov, index) in movimientos" :key="mov.id">
-            <td>{{ calculateIndex(index) }}</td>
-            <td>{{ mov.description || 'Sin descripción' }}</td>
-            <td>${{ Number(mov.amount).toFixed(2) }}</td>
-            <td>{{ obtenerNombreCategoria(mov.category_id) }}</td>
-            <td>{{ mov.date }}</td>
-            <td>
-              <a v-if="mov.receipt_image" :href="getImageUrl(mov.receipt_image)" target="_blank">
-                Ver Imagen
-              </a>
-              <span v-else>Sin imagen</span>
-            </td>
-            <td>
-              <button class="btn btn-warning btn-sm me-2" @click="openEditModal(mov)">Editar</button>
-              <button class="btn btn-danger btn-sm" @click="confirmDelete(mov.id)">Eliminar</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <div class="card-body">
+        <input
+          type="text"
+          v-model="searchQuery"
+          class="form-control mb-4 shadow-sm"
+          placeholder="Buscar movimiento..."
+        />
 
-    <!-- Paginación -->
-    <nav>
-      <ul class="pagination justify-content-center">
-        <li class="page-item" :class="{ disabled: currentPage === 1 }">
-          <button class="page-link" @click="goToPage(currentPage - 1)">Anterior</button>
-        </li>
-        <li class="page-item" v-for="page in totalPages" :key="page" :class="{ active: page === currentPage }">
-          <button class="page-link" @click="goToPage(page)">{{ page }}</button>
-        </li>
-        <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-          <button class="page-link" @click="goToPage(currentPage + 1)">Siguiente</button>
-        </li>
-      </ul>
-    </nav>
+        <button class="btn btn-primary mb-4" @click="openCreateModal">Crear movimiento</button>
 
-    <!-- Modal para Crear/Editar Movimiento -->
-    <div class="modal fade" id="movimientoModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">{{ form.id ? 'Editar Movimiento' : 'Nuevo Movimiento' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <input type="text" class="form-control mb-3" v-model="form.description" placeholder="Descripción (opcional)" />
-            <input type="number" class="form-control mb-3" v-model="form.amount" placeholder="Monto" />
-            <select class="form-select mb-3" v-model="form.category_id">
-              <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">{{ categoria.name }}</option>
-            </select>
-            <input type="date" class="form-control mb-3" v-model="form.date" />
-            <input type="file" class="form-control mb-3" @change="subirImagen" accept="image/*" />
-            <div v-if="imagenPreview" class="text-center">
-              <img :src="imagenPreview" class="img-thumbnail" style="max-width: 100px;" />
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button class="btn btn-primary" @click="saveMovimiento">{{ form.id ? 'Actualizar' : 'Guardar' }}</button>
-          </div>
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover">
+            <thead class="bg-light">
+              <tr>
+                <th>#</th>
+                <th>Descripcion</th>
+                <th>Cantidad</th>
+                <th>Categoria</th>
+                <th>Soporte</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!customers.length">
+                <td colspan="6">No se encontraron clientes.</td>
+              </tr>
+              <tr
+                v-else
+                v-for="(customer, index) in customers"
+                :key="customer.id"
+              >
+                <td>{{ calculateIndex(index) }}</td>
+                <td>{{ customer.dni }}</td>
+                <td>{{ customer.name }}</td>
+                <td>{{ customer.email }}</td>
+                <td>{{ customer.phone }}</td>
+                <td>{{ customer.address }}</td>
+                <td>
+                  <button class="btn btn-warning btn-sm" @click="openEditModal(customer)">Editar</button>
+                  <button class="btn btn-danger btn-sm" @click="confirmDelete(customer.id)">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          class="pagination d-flex align-items-center justify-content-center mt-3"
+        >
+          <button
+            @click="goToPage(currentPage - 1)"
+            :disabled="currentPage === 1"
+          >
+            Anterior
+          </button>
+          <span>Página {{ currentPage }} de {{ totalPages }}</span>
+          <button
+            @click="goToPage(currentPage + 1)"
+            :disabled="currentPage === totalPages"
+          >
+            Siguiente
+          </button>
         </div>
       </div>
     </div>
   </div>
-</template>
 
+  <!-- Modal -->
+  <div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="customerModalLabel">{{ showEditForm ? 'Editar Cliente' : 'Crear Cliente' }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="showEditForm ? updateCliente() : createCliente()">
+            <div class="form-group">
+              <label for="name">DNI</label>
+              <input type="text" v-model="form.dni" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label for="name">Nombre</label>
+              <input type="text" v-model="form.name" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label for="email">Correo</label>
+              <input type="email" v-model="form.email" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label for="phone">Teléfono</label>
+              <input type="text" v-model="form.phone" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label for="address">Dirección</label>
+              <input type="text" v-model="form.address" class="form-control" required />
+            </div>
+            <div class="d-flex justify-content-between mt-4">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-success">{{ showEditForm ? 'Actualizar' : 'Crear' }}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</template>
 <script setup>
 import { ref, onMounted, watch } from "vue";
-import { useApi } from "../composables/use-api";
+import { useApi } from "@/composables/use-api";
 import Swal from "sweetalert2";
 import * as bootstrap from "bootstrap";
 
-const movimientos = ref([]);
-const categorias = ref([]);
+const transactions = ref([]);
+const categories = ref([]);
 const searchQuery = ref("");
 const currentPage = ref(1);
 const totalPages = ref(1);
 const itemsPerPage = 5;
-const imagenFile = ref(null);
-const imagenPreview = ref(null);
+const showCreateForm = ref(false);
+const showEditForm = ref(false);
 const form = ref({
   id: null,
-  description: "",
-  amount: "",
-  category_id: null,
-  date: new Date().toISOString().split('T')[0],
-  receipt_image: null
+  name: "",
+  email: "",
+  phone: "",
+  address: ""
 });
 
-// Cargar movimientos paginados
-const fetchMovimientos = async (page = 1, search = "") => {
+// Fetch paginated customers
+const fetchTransaction = async (page = 1, search = "") => {
   try {
-    const response = await useApi(`transactions?page=${page}&itemsPerPage=${itemsPerPage}&search=${search}`);
-    movimientos.value = response.transactions.data.map(mov => ({ ...mov, amount: Number(mov.amount) }));
-    currentPage.value = response.transactions.current_page;
-    totalPages.value = response.transactions.last_page;
+    const response = await useApi(
+      `transactions?page=${page}&itemsPerPage=${itemsPerPage}&search=${search}`
+    );
+    transactions.value = response.transaction.data; // Clientes filtrados
+    currentPage.value = response.transaction.current_page; // Página actual
+    totalPages.value = response.transaction.last_page; // Total de páginas
   } catch (error) {
     console.error("Error al cargar los movimientos:", error);
   }
 };
 
-// Cargar categorías
-const fetchCategorias = async () => {
-  try {
-    categorias.value = await useApi("categories");
-  } catch (error) {
-    console.error("Error al cargar categorías:", error);
+// Crear cliente
+// const createCliente = async () => {
+//   try {
+//     await useApi("customer", "POST", form.value);
+//     fetchCustomers(currentPage.value);
+//     cancelForm();
+//     Swal.fire("Éxito", "Cliente creado exitosamente", "success");
+//   } catch (error) {
+//     console.error("Error al crear el cliente:", error);
+//     Swal.fire("Error", "No se pudo crear el cliente", "error");
+//   }
+// };
+
+// Editar cliente
+const openEditModal = (customer) => {
+  form.value = { ...customer };
+  showEditForm.value = true;
+  showCreateForm.value = false;
+  new bootstrap.Modal(document.getElementById('customerModal')).show();
+};
+
+// Actualizar cliente
+// const updateCliente = async () => {
+//   try {
+//     await useApi(`customer/${form.value.id}`, "PUT", form.value);
+//     fetchCustomers(currentPage.value);
+//     cancelForm();
+//     Swal.fire("Éxito", "Cliente actualizado exitosamente", "success");
+//   } catch (error) {
+//     console.error("Error al actualizar el cliente:", error);
+//     Swal.fire("Error", "No se pudo actualizar el cliente", "error");
+//   }
+// };
+
+// Eliminar cliente
+// const confirmDelete = (id) => {
+//   Swal.fire({
+//     title: "¿Estás seguro?",
+//     text: "No podrás revertir esto",
+//     icon: "warning",
+//     showCancelButton: true,
+//     confirmButtonColor: "#3085d6",
+//     cancelButtonColor: "#d33",
+//     confirmButtonText: "Sí, eliminar"
+//   }).then(async (result) => {
+//     if (result.isConfirmed) {
+//       try {
+//         await useApi(`customer/${id}`, "DELETE");
+//         fetchCustomers(currentPage.value);
+//         Swal.fire("Eliminado", "Cliente eliminado exitosamente", "success");
+//       } catch (error) {
+//         console.error("Error al eliminar el cliente:", error);
+//         Swal.fire("Error", "No se pudo eliminar el cliente", "error");
+//       }
+//     }
+//   });
+// };
+
+// Cancelar formulario
+const cancelForm = () => {
+  form.value = {
+    id: null,
+    name: "",
+    email: "",
+    phone: "",
+    address: ""
+  };
+  showCreateForm.value = false;
+  showEditForm.value = false;
+  const modalElement = document.getElementById('customerModal');
+  const modalInstance = bootstrap.Modal.getInstance(modalElement);
+  if (modalInstance) {
+    modalInstance.hide();
   }
 };
 
-const obtenerNombreCategoria = (id) => {
-  const categoria = categorias.value.find(cat => cat.id === id);
-  return categoria ? categoria.name : "Desconocida";
-};
-
-const openEditModal = (mov) => {
-  form.value = { ...mov };
-  imagenPreview.value = mov.receipt_image ? getImageUrl(mov.receipt_image) : null;
-  new bootstrap.Modal(document.getElementById("movimientoModal")).show();
-};
-
+// Abrir modal de creación
 const openCreateModal = () => {
-  form.value = { id: null, description: "", amount: "", category_id: categorias.value[0]?.id || null, date: new Date().toISOString().split('T')[0], receipt_image: null };
-  imagenPreview.value = null;
-  new bootstrap.Modal(document.getElementById("movimientoModal")).show();
+  cancelForm();
+  showCreateForm.value = true;
+  showEditForm.value = false;
+  new bootstrap.Modal(document.getElementById('customerModal')).show();
 };
 
-const saveMovimiento = async () => {
-  try {
-    const formData = new FormData();
-    formData.append("description", form.value.description);
-    formData.append("amount", form.value.amount);
-    formData.append("category_id", form.value.category_id);
-    formData.append("date", form.value.date);
-    if (imagenFile.value) {
-      formData.append("receipt_image", imagenFile.value);
-    }
-
-    if (form.value.id) {
-      await useApi(`transactions/${form.value.id}`, "PUT", formData);
-      Swal.fire("Actualizado", "Movimiento actualizado exitosamente", "success");
-    } else {
-      await useApi("transactions", "POST", formData);
-      Swal.fire("Creado", "Movimiento agregado exitosamente", "success");
-    }
-    fetchMovimientos(currentPage.value);
-  } catch (error) {
-    Swal.fire("Error", "No se pudo guardar el movimiento", "error");
+// Cambiar de página
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    fetchCustomers(page, searchQuery.value);
   }
 };
 
-const confirmDelete = (id) => {
-  Swal.fire({
-    title: "¿Estás seguro?",
-    text: "No podrás revertir esto",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Sí, eliminar",
-    cancelButtonText: "Cancelar"
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      await useApi(`transactions/${id}`, "DELETE");
-      fetchMovimientos(currentPage.value);
-      Swal.fire("Eliminado", "Movimiento eliminado exitosamente", "success");
-    }
-  });
-};
-
-const goToPage = (page) => {
-  fetchMovimientos(page, searchQuery.value);
-};
-
+// Calcular índice global
 const calculateIndex = (index) => {
   return (currentPage.value - 1) * itemsPerPage + index + 1;
 };
 
+// Cargar clientes al montar el componente
 onMounted(() => {
-  fetchMovimientos();
-  fetchCategorias();
+  fetchCustomers();
 });
 
-watch(searchQuery, () => fetchMovimientos(1, searchQuery.value));
+watch(searchQuery, (newQuery) => {
+  fetchCustomers(1, newQuery); // Reinicia a la página 1 cuando se busca algo nuevo
+});
 </script>
+
+<style scoped>
+.custom-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.card-header {
+  font-size: 1.5rem;
+}
+
+.pagination button {
+  background-color: #4e73df;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 50px;
+  font-weight: bold;
+  margin: 0 5px;
+}
+
+.pagination button:disabled {
+  background-color: #e0e0e0;
+  color: #7a7a7a;
+}
+
+.pagination span {
+  font-weight: bold;
+  color: #4e73df;
+}
+</style>

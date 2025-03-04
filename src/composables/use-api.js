@@ -1,29 +1,31 @@
-import axios from 'axios';
+import axios from "axios";
 
-export const useApi = async function (url, method = 'GET', payload = {}) { 
-    url = `https://finanzasbackend-production.up.railway.app/api/${url}`;
+// export const useApi = async function (url, method = 'GET', payload = {}) {
+//     url = `https://finanzasbackend-production.up.railway.app/api/${url}`;
 
-    try {
-        let headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        };
+export const useApi = async function (url, method = "GET", payload = {}) {
+  url = `http://finanzas_backend.test/api/${url}`;
 
-        const config = {
-            method: method,
-            url: url,
-            data: payload,
-            headers: headers,
-        };
+  try {
+    let headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
 
-        const response = await axios(config);
-        return response.data;
+    const config = {
+      method: method,
+      url: url,
+      data: payload,
+      headers: headers,
+    };
 
-    } catch (error) {
-        if (error.response) {
-            throw error.response.data;
-        } else {
-            throw new Error("Error de conexión con el servidor");
-        }
+    const response = await axios(config);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw error.response.data;
+    } else {
+      throw new Error("Error de conexión con el servidor");
     }
+  }
 };
