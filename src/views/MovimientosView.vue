@@ -6,12 +6,8 @@
       </div>
 
       <div class="card-body">
-        <input
-          type="text"
-          v-model="searchQuery"
-          class="form-control mb-4 shadow-sm"
-          placeholder="Buscar movimiento..."
-        />
+        <input type="text" v-model="searchQuery" class="form-control mb-4 shadow-sm"
+          placeholder="Buscar movimiento..." />
 
         <button class="btn btn-primary mb-4" @click="openCreateModal">Crear movimiento</button>
 
@@ -28,43 +24,30 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!customers.length">
-                <td colspan="6">No se encontraron clientes.</td>
+              <tr v-if="!transactions.length">
+                <td colspan="6">No se encontraron movimientos.</td>
               </tr>
-              <tr
-                v-else
-                v-for="(customer, index) in customers"
-                :key="customer.id"
-              >
+              <tr v-else v-for="(transaction, index) in transactions" :key="transaction.id">
                 <td>{{ calculateIndex(index) }}</td>
-                <td>{{ customer.dni }}</td>
-                <td>{{ customer.name }}</td>
-                <td>{{ customer.email }}</td>
-                <td>{{ customer.phone }}</td>
-                <td>{{ customer.address }}</td>
+                <td>{{ transaction.description }}</td>
+                <td>{{ transaction.amount }}</td>
+                <td>{{ transaction.category_name }}</td>
+                <td>{{ transaction.receipt_image }}</td>
+                <td>{{ transaction.date }}</td>
                 <td>
-                  <button class="btn btn-warning btn-sm" @click="openEditModal(customer)">Editar</button>
-                  <button class="btn btn-danger btn-sm" @click="confirmDelete(customer.id)">Eliminar</button>
+                  <button class="btn btn-warning btn-sm" @click="openEditModal(transaction)">Editar</button>
+                  <button class="btn btn-danger btn-sm" @click="confirmDelete(transaction.id)">Eliminar</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-
-        <div
-          class="pagination d-flex align-items-center justify-content-center mt-3"
-        >
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-          >
+        <div class="pagination d-flex align-items-center justify-content-center mt-3">
+          <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1">
             Anterior
           </button>
           <span>Página {{ currentPage }} de {{ totalPages }}</span>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-          >
+          <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages">
             Siguiente
           </button>
         </div>
@@ -73,26 +56,26 @@
   </div>
 
   <!-- Modal -->
-  <div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true">
+  <div class="modal fade" id="transactionModal" tabindex="-1" aria-labelledby="transactionModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="customerModalLabel">{{ showEditForm ? 'Editar Cliente' : 'Crear Cliente' }}</h5>
+          <h5 class="modal-title" id="transactionModalLabel">{{ showEditForm ? 'Editar transaccion' : 'Crear transaccion' }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <form @submit.prevent="showEditForm ? updateCliente() : createCliente()">
+          <form @submit.prevent="showEditForm ? updateTransaction() : createTransaction()">
             <div class="form-group">
-              <label for="name">DNI</label>
-              <input type="text" v-model="form.dni" class="form-control" required />
+              <label for="description">Descripcion</label>
+              <input type="text" v-model="form.description" class="form-control" required />
             </div>
             <div class="form-group">
-              <label for="name">Nombre</label>
-              <input type="text" v-model="form.name" class="form-control" required />
+              <label for="amount">Cantidad</label>
+              <input type="number" v-model="form.amount" class="form-control" required />
             </div>
             <div class="form-group">
-              <label for="email">Correo</label>
-              <input type="email" v-model="form.email" class="form-control" required />
+              <label for="category">Categoria</label>
+              <input type="text" v-model="form.email" class="form-control" required />
             </div>
             <div class="form-group">
               <label for="phone">Teléfono</label>
@@ -115,7 +98,7 @@
 </template>
 <script setup>
 import { ref, onMounted, watch } from "vue";
-import { useApi } from "@/composables/use-api";
+import { useApi } from "../composables/use-api";
 import Swal from "sweetalert2";
 import * as bootstrap from "bootstrap";
 
@@ -129,10 +112,10 @@ const showCreateForm = ref(false);
 const showEditForm = ref(false);
 const form = ref({
   id: null,
-  name: "",
-  email: "",
-  phone: "",
-  address: ""
+  description: "",
+  amount: "",
+  category_name: "",
+  receipt_image: ""
 });
 
 // Fetch paginated customers
@@ -141,16 +124,17 @@ const fetchTransaction = async (page = 1, search = "") => {
     const response = await useApi(
       `transactions?page=${page}&itemsPerPage=${itemsPerPage}&search=${search}`
     );
-    transactions.value = response.transaction.data; // Clientes filtrados
-    currentPage.value = response.transaction.current_page; // Página actual
-    totalPages.value = response.transaction.last_page; // Total de páginas
+    transactions.value = response.transactions.data; // Clientes filtrados
+    currentPage.value = response.transactions.current_page; // Página actual
+    totalPages.value = response.transactions.last_page; // Total de páginas
+    console.log(transactions.value);
   } catch (error) {
     console.error("Error al cargar los movimientos:", error);
   }
 };
 
 // Crear cliente
-// const createCliente = async () => {
+// const createTransaction = async () => {
 //   try {
 //     await useApi("customer", "POST", form.value);
 //     fetchCustomers(currentPage.value);
@@ -167,11 +151,11 @@ const openEditModal = (customer) => {
   form.value = { ...customer };
   showEditForm.value = true;
   showCreateForm.value = false;
-  new bootstrap.Modal(document.getElementById('customerModal')).show();
+  new bootstrap.Modal(document.getElementById('transactionModal')).show();
 };
 
 // Actualizar cliente
-// const updateCliente = async () => {
+// const updateTransaction = async () => {
 //   try {
 //     await useApi(`customer/${form.value.id}`, "PUT", form.value);
 //     fetchCustomers(currentPage.value);
@@ -218,7 +202,7 @@ const cancelForm = () => {
   };
   showCreateForm.value = false;
   showEditForm.value = false;
-  const modalElement = document.getElementById('customerModal');
+  const modalElement = document.getElementById('transactionModal');
   const modalInstance = bootstrap.Modal.getInstance(modalElement);
   if (modalInstance) {
     modalInstance.hide();
@@ -230,7 +214,7 @@ const openCreateModal = () => {
   cancelForm();
   showCreateForm.value = true;
   showEditForm.value = false;
-  new bootstrap.Modal(document.getElementById('customerModal')).show();
+  new bootstrap.Modal(document.getElementById('transactionModal')).show();
 };
 
 // Cambiar de página
@@ -247,11 +231,11 @@ const calculateIndex = (index) => {
 
 // Cargar clientes al montar el componente
 onMounted(() => {
-  fetchCustomers();
+  fetchTransaction();
 });
 
 watch(searchQuery, (newQuery) => {
-  fetchCustomers(1, newQuery); // Reinicia a la página 1 cuando se busca algo nuevo
+  fetchTransaction(1, newQuery); // Reinicia a la página 1 cuando se busca algo nuevo
 });
 </script>
 
